@@ -22,7 +22,6 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
     message: 'User logged in successfully !',
     data: {
       accessToken: result.accessToken,
-      needPasswordChange: result.needPasswordChange,
     },
   });
 });
@@ -31,14 +30,6 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
   const { refreshToken } = req.cookies;
 
   const result = await AuthService.refreshToken(refreshToken);
-
-  // // set refresh token into cookie
-  // const cookieOptions = {
-  //   secure: config.env === 'production',
-  //   httpOnly: true,
-  // };
-
-  // res.cookie('refreshToken', refreshToken, cookieOptions);
 
   sendResponse<IRefreshTokenResponse>(res, {
     statusCode: 200,
@@ -57,7 +48,7 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: 200,
     success: true,
-    message: 'Password changed successfully!',
+    message: '',
     data: {
       status: 200,
       message: 'Password changed successfully!',
@@ -66,22 +57,33 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
 });
 
 const forgotPass = catchAsync(async (req: Request, res: Response) => {
-  await AuthService.forgotPass(req.body.email);
+  const result = await AuthService.forgotPass(req.body.number);
 
   sendResponse(res, {
     statusCode: 200,
     success: true,
-    message: 'Check your email!',
-    data: {
-      status: 200,
-      message: 'Check your email for reset link!',
-    },
+    message: 'check your phone for OTP',
+    data: result
   });
 });
 
+const checkOTP = catchAsync(async (req, res) => {
+  const token = req.headers.authorization || '';
+  const OTP = req.body.OTP
+  const result = await AuthService.checkOTP(token, OTP)
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Set your new password',
+    data: result
+  });
+})
+
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
   const token = req.headers.authorization || '';
-  await AuthService.resetPassword(req.body, token);
+
+  await AuthService.resetPassword(token, req.body.newPassword);
 
   sendResponse(res, {
     statusCode: 200,
@@ -100,4 +102,5 @@ export const AuthController = {
   changePassword,
   forgotPass,
   resetPassword,
+  checkOTP
 };

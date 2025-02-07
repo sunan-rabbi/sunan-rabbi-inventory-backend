@@ -3,7 +3,8 @@ import validateRequest from '../../middlewares/validateRequest';
 import { AuthController } from './auth.controller';
 import { AuthValidation } from './auth.validation';
 import auth from '../../middlewares/auth';
-import { ENUM_USER_ROLE } from '../../../enums/user';
+import { UserRole } from '@prisma/client';
+import { userRoutes } from '../user/user.route';
 
 const router = express.Router();
 
@@ -21,22 +22,24 @@ router.post(
 
 router.post(
     '/change-password',
+    auth(UserRole.ADMIN, UserRole.CUSTOMER),
     validateRequest(AuthValidation.changePasswordZodSchema),
-    // auth(
-    //     ENUM_USER_ROLE.SUPER_ADMIN,
-    //     ENUM_USER_ROLE.ADMIN,
-    //     ENUM_USER_ROLE.DOCTOR,
-    //     ENUM_USER_ROLE.PATIENT
-    // ),
     AuthController.changePassword
 );
 router.post(
-    '/forgot-password',
+    '/forget-password',
+    validateRequest(AuthValidation.forgetPasswordZodSchema),
     AuthController.forgotPass
+);
+router.post(
+    '/check-otp',
+    validateRequest(AuthValidation.checkOTPZodSchema),
+    AuthController.checkOTP
 );
 
 router.post(
     '/reset-password',
+    validateRequest(AuthValidation.resetPasswordZodSchema),
     AuthController.resetPassword
 );
 

@@ -1,9 +1,8 @@
 import bcrypt from 'bcrypt';
 import httpStatus from 'http-status';
-import { JwtPayload, Secret } from 'jsonwebtoken';
+import { Secret } from 'jsonwebtoken';
 import config from '../../../config';
 import ApiError from '../../../errors/ApiError';
-
 import {
     IChangePassword,
     ILoginUser,
@@ -13,14 +12,30 @@ import {
 import prisma from '../../../shared/prisma';
 import { UserStatus } from '@prisma/client';
 import { AuthUtils } from '../../../helpers/bcryptHelpers';
-import { sendEmail } from '../../../helpers/sendEmail';
+import { JWTHelper } from '../../../helpers/jwtHelpers';
+import { JwtPayload } from '../../../interfaces/common';
+
+function generateFourDigitNumber() {
+    return Math.floor(1000 + Math.random() * 9000);
+}
+
+function generateRandomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let code = '';
+    for (let i = 0; i < 4; i++) {
+        const randomIndex = Math.floor(Math.random() * chars.length);
+        code += chars[randomIndex];
+    }
+    return code;
+}
+
 
 const loginUser = async (payload: ILoginUser): Promise<ILoginUserResponse> => {
-    const { email, password } = payload;
+    const { number, password } = payload;
 
     const isUserExist = await prisma.user.findUnique({
         where: {
-            email,
+            number,
             status: UserStatus.ACTIVE
         }
     });
@@ -36,32 +51,31 @@ const loginUser = async (payload: ILoginUser): Promise<ILoginUserResponse> => {
         throw new ApiError(httpStatus.UNAUTHORIZED, 'Password is incorrect');
     }
 
-    const { id: userId, role, needPasswordChange } = isUserExist;
-    const accessToken = jwtHelpers.createToken(
-        { userId, role, email },
+    const { id: userID, role } = isUserExist;
+
+    const accessToken = JWTHelper.createToken(
+        { userID, role },
         config.jwt.secret as Secret,
         config.jwt.expires_in as string
     );
 
-    const refreshToken = jwtHelpers.createToken(
-        { userId, role },
+    const refreshToken = JWTHelper.createToken(
+        { userID, role },
         config.jwt.refresh_secret as Secret,
         config.jwt.refresh_expires_in as string
     );
 
     return {
         accessToken,
-        refreshToken,
-        needPasswordChange
+        refreshToken
     };
 };
 
 const refreshToken = async (token: string): Promise<IRefreshTokenResponse> => {
-    //verify token
-    // invalid token - synchronous
+
     let verifiedToken = null;
     try {
-        verifiedToken = jwtHelpers.verifyToken(
+        verifiedToken = JWTHelper.verifyToken(
             token,
             config.jwt.refresh_secret as Secret
         );
@@ -69,11 +83,11 @@ const refreshToken = async (token: string): Promise<IRefreshTokenResponse> => {
         throw new ApiError(httpStatus.FORBIDDEN, 'Invalid Refresh Token');
     }
 
-    const { userId } = verifiedToken;
+    const { userID } = verifiedToken as JwtPayload;
 
     const isUserExist = await prisma.user.findUnique({
         where: {
-            id: userId,
+            id: userID,
             status: UserStatus.ACTIVE
         }
     });
@@ -81,7 +95,7 @@ const refreshToken = async (token: string): Promise<IRefreshTokenResponse> => {
         throw new ApiError(httpStatus.NOT_FOUND, 'User does not exist');
     }
 
-    const newAccessToken = jwtHelpers.createToken(
+    const newAccessToken = JWTHelper.createToken(
         {
             userId: isUserExist.id,
             role: isUserExist.role,
@@ -103,7 +117,7 @@ const changePassword = async (
 
     const isUserExist = await prisma.user.findUnique({
         where: {
-            id: user?.userId,
+            id: user?.userID,
             status: UserStatus.ACTIVE
         }
     });
@@ -128,16 +142,15 @@ const changePassword = async (
         },
         data: {
             password: hashPassword,
-            needPasswordChange: false
         }
     })
 };
 
-const forgotPass = async (email: string) => {
+const forgotPass = async (number: string) => {
 
     const isUserExist = await prisma.user.findUnique({
         where: {
-            email,
+            number,
             status: UserStatus.ACTIVE
         }
     });
@@ -146,57 +159,122 @@ const forgotPass = async (email: string) => {
         throw new ApiError(httpStatus.BAD_REQUEST, "User does not exist!")
     }
 
-    const passResetToken = await jwtHelpers.createPasswordResetToken({
-        id: isUserExist.id
-    });
+    const OTP = generateFourDigitNumber()
 
-    const resetLink: string = config.reset_link + `?id=${isUserExist.id}&token=${passResetToken}`
-
-    await sendEmail(email, `
-      <div>
-        <p>Dear ${isUserExist.role},</p>
-        <p>Your password reset link: <a href=${resetLink}><button>RESET PASSWORD<button/></a></p>
-        <p>Thank you</p>
-      </div>
-  `);
-}
-
-const resetPassword = async (payload: { id: string, newPassword: string }, token: string) => {
-
-    const isUserExist = await prisma.user.findUnique({
-        where: {
-            id: payload.id,
-            status: UserStatus.ACTIVE
+    const result = await prisma.forgetRequest.create({
+        data: {
+            number: isUserExist.number,
+            userID: isUserExist.id,
+            OTP
         }
     })
 
-    if (!isUserExist) {
-        throw new ApiError(httpStatus.BAD_REQUEST, "User not found!")
+    if (!result) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Try again")
     }
 
-    const isVerified = jwtHelpers.verifyToken(token, config.jwt.secret as string);
+    const passResetToken = JWTHelper.createToken({ Id: result.id, number: isUserExist.number, userID: isUserExist.id }, config.jwt.secret as Secret, config.jwt.passwordResetTokenExpirationTime)
+
+
+    return {
+        token: passResetToken
+    }
+
+}
+
+const checkOTP = async (token: string, OTP: number) => {
+
+    const isVerified = JWTHelper.verifyToken(token, config.jwt.secret as Secret) as { Id: string, number: string, userID: string }
 
     if (!isVerified) {
         throw new ApiError(httpStatus.UNAUTHORIZED, "Something went wrong!")
     }
 
-    const password = await bcrypt.hash(payload.newPassword, Number(config.bcrypt_salt_rounds));
+    const forgetRequest = await prisma.forgetRequest.findUnique({
+        where: {
+            id: isVerified.Id,
+            number: isVerified.number,
+            userID: isVerified.userID
+        }
+    })
+
+    if (forgetRequest?.OTP !== OTP) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "OTP doesn't match")
+    }
+
+    const flag = generateRandomCode()
+
+    await prisma.forgetRequest.update({
+        where: {
+            id: isVerified.Id,
+            number: isVerified.number,
+            userID: isVerified.userID
+        },
+        data: {
+            isChecked: true,
+            flag
+        }
+    })
+
+    const payload = {
+        id: isVerified.Id,
+        number: isVerified.number,
+        userID: isVerified.userID,
+        flag
+    }
+
+    const setToken = JWTHelper.createToken(payload, config.jwt.secret as Secret, config.jwt.passwordResetTokenExpirationTime)
+
+
+    return {
+        token: setToken
+    }
+}
+
+const resetPassword = async (token: string, newPassword: string) => {
+
+    const isVerified = JWTHelper.verifyToken(token, config.jwt.secret as Secret) as { id: string, number: string, userID: string, flag: string }
+
+    console.log(isVerified);
+
+
+    if (!isVerified) {
+        throw new ApiError(httpStatus.UNAUTHORIZED, "Something went wrong!")
+    }
+
+    const isChecked = await prisma.forgetRequest.findUniqueOrThrow({
+        where: {
+            id: isVerified.id,
+            number: isVerified.number,
+            userID: isVerified.userID,
+            isChecked: true,
+            flag: isVerified.flag
+        }
+    })
+
+    if (!isChecked) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Try again")
+    }
+
+    const hashedPassword = await AuthUtils.hashedPassword(newPassword)
 
     await prisma.user.update({
         where: {
-            id: payload.id
+            id: isChecked.userID,
+            number: isChecked.number
         },
         data: {
-            password
+            password: hashedPassword
         }
     })
-}
 
+}
 
 export const AuthService = {
     loginUser,
     refreshToken,
     changePassword,
     forgotPass,
-    resetPassword
+    resetPassword,
+    checkOTP
 };
