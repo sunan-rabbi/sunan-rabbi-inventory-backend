@@ -6,6 +6,7 @@ import routes from './app/routes';
 import cookieParser from 'cookie-parser';
 import cron from 'node-cron';
 import { errorlogger } from './shared/logger';
+import { cronService } from './app/modules/cron/cron.service';
 
 const app: Application = express();
 
@@ -33,7 +34,7 @@ app.get('/test', async (req: Request, res: Response) => {
 // Schedule to run every minute
 cron.schedule('* * * * *', async (): Promise<void> => {
   try {
-
+    await cronService.deleteForgetRequest()
   } catch (error) {
     errorlogger.error(error);
   }

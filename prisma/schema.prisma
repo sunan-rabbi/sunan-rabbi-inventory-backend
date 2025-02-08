@@ -7,60 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String     @id @default(uuid())
-  number    String     @unique
-  password  String
-  role      UserRole
-  status    UserStatus @default(PENDING)
-  OTP       Int
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  Admin     Admin?
-  Customers Customers?
-
-  @@map("users")
-}
-
-model forgetRequest {
-  id        String   @id @default(uuid())
-  number    String
-  userID    String
-  OTP       Int
-  flag      String?
-  isChecked Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Admin {
-  id        String   @id @default(uuid())
-  userID    String   @unique
-  user      User     @relation(references: [id], fields: [userID])
-  name      String
-  image     String?
-  number    String   @unique
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updateAt  DateTime @updatedAt
-
-  @@map("admins")
-}
-
-model Customers {
-  id        String   @id @default(uuid())
-  userID    String   @unique
-  user      User     @relation(references: [id], fields: [userID])
-  name      String
-  image     String?
-  number    String   @unique
-  isDeleted Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updateAt  DateTime @updatedAt
-
-  @@map("customers")
-}
-
+// -------------------- Enums --------------------
 enum UserRole {
   SUPER_ADMIN
   ADMIN
@@ -77,4 +24,117 @@ enum UserStatus {
 enum Gender {
   MALE
   FEMALE
+}
+
+// -------------------- Models --------------------
+model User {
+  id        String     @id @default(uuid())
+  number    String     @unique
+  password  String
+  role      UserRole
+  status    UserStatus @default(PENDING)
+  OTP       Int
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // One-to-one or one-to-many relationships
+  admin         Admin?
+  customer      Customer?
+  ForgetRequest ForgetRequest[]
+
+  @@map("users")
+}
+
+model ForgetRequest {
+  id        String   @id @default(uuid())
+  number    String
+  OTP       Int
+  flag      String?
+  isChecked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Link back to User (optional but often useful for clean relations)
+  userID String
+  user   User?  @relation(fields: [userID], references: [id])
+
+  @@map("forget_requests")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  userID    String   @unique
+  user      User     @relation(fields: [userID], references: [id])
+  name      String
+  image     String?
+  number    String   @unique
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  userID    String   @unique
+  user      User     @relation(fields: [userID], references: [id])
+  name      String
+  image     String?
+  number    String   @unique
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One-to-many relationship with Shop
+  shops Shop[]
+
+  @@map("customers")
+}
+
+model Shop {
+  id        String   @id @default(uuid())
+  shopName  String
+  ownerID   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationship to Customer
+  owner Customer @relation(fields: [ownerID], references: [id])
+
+  // One-to-many relationship with ProductAmount
+  productAmounts ProductAmount[]
+
+  @@map("shops")
+}
+
+model Inventory {
+  id            String   @id @default(uuid())
+  productName   String
+  barcode       String
+  measuringUnit String
+  buyPrice      Float
+  sellPrice     Float
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // One-to-many relationship with ProductAmount
+  productAmounts ProductAmount[]
+
+  @@map("inventory")
+}
+
+model ProductAmount {
+  id        String   @id @default(uuid())
+  productID String
+  shopID    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  product Inventory @relation(fields: [productID], references: [id])
+  shop    Shop      @relation(fields: [shopID], references: [id])
+
+  @@map("product_amounts")
 }
