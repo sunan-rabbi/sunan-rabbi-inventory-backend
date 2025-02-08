@@ -1,4 +1,4 @@
-import { Customers, Prisma, UserStatus } from "@prisma/client"
+import { Customer, Prisma, UserStatus } from "@prisma/client"
 import { paginationHelpers } from "../../../helpers/paginationHelper"
 import { IPaginationOptions } from "../../../interfaces/pagination"
 import prisma from "../../../shared/prisma"
@@ -7,7 +7,7 @@ import { IUploadFile } from "../../../interfaces/file"
 import { FileUploadHelper } from "../../../helpers/fileUploadHelper"
 import { ICustomerFilterRequest } from "./customer.interface"
 
-const getAllCustomer = async (filters: ICustomerFilterRequest, options: IPaginationOptions): Promise<IGenericResponse<Customers[]>> => {
+const getAllCustomer = async (filters: ICustomerFilterRequest, options: IPaginationOptions): Promise<IGenericResponse<Customer[]>> => {
 
     const { limit, page, skip, sortBy, sortOrder } = paginationHelpers.calculatePagination(options)
     const { searchTerm, ...filterData } = filters
@@ -39,9 +39,9 @@ const getAllCustomer = async (filters: ICustomerFilterRequest, options: IPaginat
         isDeleted: false
     })
 
-    const whereConditions: Prisma.CustomersWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
+    const whereConditions: Prisma.CustomerWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
 
-    const result = await prisma.customers.findMany({
+    const result = await prisma.customer.findMany({
         where: whereConditions,
         skip,
         take: limit,
@@ -50,7 +50,7 @@ const getAllCustomer = async (filters: ICustomerFilterRequest, options: IPaginat
             : { createdAt: 'desc' }
     })
 
-    const total = await prisma.customers.count({
+    const total = await prisma.customer.count({
         where: whereConditions
     })
 
@@ -66,7 +66,7 @@ const getAllCustomer = async (filters: ICustomerFilterRequest, options: IPaginat
 }
 const getCustomerByID = async (id: string) => {
 
-    const result = await prisma.customers.findUnique({
+    const result = await prisma.customer.findUnique({
         where: {
             userID: id
         }
@@ -77,7 +77,7 @@ const getCustomerByID = async (id: string) => {
 const deleteCustomer = async (id: string) => {
     await prisma.$transaction(async tx => {
 
-        await prisma.customers.update({
+        await prisma.customer.update({
             where: {
                 userID: id
             },
@@ -108,7 +108,7 @@ const updateCustomer = async (id: string, payload: { name?: string, image?: stri
         payload.image = uploadedProfileImage?.secure_url;
     }
 
-    const result = await prisma.customers.update({
+    const result = await prisma.customer.update({
         where: {
             userID: id
         },
