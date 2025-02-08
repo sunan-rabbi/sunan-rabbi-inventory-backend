@@ -15,7 +15,7 @@ const createAdmin = catchAsync(async (req: Request, res: Response, next: NextFun
   const result = await UserServices.createAdmin(req.body, file)
 
   sendResponse(res, {
-    statusCode: httpStatus.OK,
+    statusCode: httpStatus.CREATED,
     success: true,
     message: 'Admin created successfully!',
     data: result,
@@ -28,7 +28,7 @@ const createCustomer = catchAsync(async (req: Request, res: Response, next: Next
   const result = await UserServices.createCustomer(req.body, file)
 
   sendResponse(res, {
-    statusCode: httpStatus.OK,
+    statusCode: httpStatus.CREATED,
     success: true,
     message: 'Customer created successfully!',
     data: result,

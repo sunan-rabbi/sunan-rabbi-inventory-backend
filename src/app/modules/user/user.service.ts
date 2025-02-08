@@ -52,6 +52,7 @@ const createAdmin = async (payload: IAdmin, file: IUploadFile) => {
 
 const createCustomer = async (payload: ICustomer, file: IUploadFile) => {
 
+
   const { password, customer } = payload
   const hashPassword = await AuthUtils.hashedPassword(password)
 
@@ -73,7 +74,7 @@ const createCustomer = async (payload: ICustomer, file: IUploadFile) => {
       }
     })
 
-    const createCustomer = await tx.customers.create({
+    const createCustomer = await tx.customer.create({
       data: {
         userID: createUser.id,
         ...customer

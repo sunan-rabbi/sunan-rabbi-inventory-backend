@@ -1,3 +1,4 @@
+import { UserRole } from '@prisma/client';
 import { ENUM_USER_ROLE } from '../enums/user';
 import { IGenericErrorMessage } from './error';
 
@@ -25,7 +26,7 @@ export type IAuthUser = {
 
 export interface JwtPayload {
   userID: string;
-  role: string;
+  role: UserRole;
   iat: number;
   exp: number;
 }

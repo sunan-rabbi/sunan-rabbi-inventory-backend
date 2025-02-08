@@ -4,7 +4,7 @@ import { AuthController } from './auth.controller';
 import { AuthValidation } from './auth.validation';
 import auth from '../../middlewares/auth';
 import { UserRole } from '@prisma/client';
-import { userRoutes } from '../user/user.route';
+import { userRoutes } from '../user/user.routes';
 
 const router = express.Router();
 
