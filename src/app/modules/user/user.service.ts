@@ -33,6 +33,7 @@ const createAdmin = async (payload: IAdmin, file: IUploadFile) => {
         number: admin.number,
         password: hashPassword,
         role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
         OTP
       }
     })

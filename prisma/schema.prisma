@@ -7,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// -------------------- Enums --------------------
 enum UserRole {
   SUPER_ADMIN
   ADMIN
@@ -26,7 +25,6 @@ enum Gender {
   FEMALE
 }
 
-// -------------------- Models --------------------
 model User {
   id        String     @id @default(uuid())
   number    String     @unique
@@ -37,7 +35,6 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  // One-to-one or one-to-many relationships
   admin         Admin?
   customer      Customer?
   ForgetRequest ForgetRequest[]
@@ -54,7 +51,6 @@ model ForgetRequest {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Link back to User (optional but often useful for clean relations)
   userID String
   user   User?  @relation(fields: [userID], references: [id])
 
@@ -86,7 +82,6 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // One-to-many relationship with Shop
   shops Shop[]
 
   @@map("customers")
@@ -99,11 +94,10 @@ model Shop {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relationship to Customer
   owner Customer @relation(fields: [ownerID], references: [id])
 
-  // One-to-many relationship with ProductAmount
   productAmounts ProductAmount[]
+  Checkout       Checkout[]
 
   @@map("shops")
 }
@@ -119,8 +113,8 @@ model Inventory {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // One-to-many relationship with ProductAmount
   productAmounts ProductAmount[]
+  CheckoutItem   CheckoutItem[]
 
   @@map("inventory")
 }
@@ -129,12 +123,49 @@ model ProductAmount {
   id        String   @id @default(uuid())
   productID String
   shopID    String
+  amount    Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   product Inventory @relation(fields: [productID], references: [id])
   shop    Shop      @relation(fields: [shopID], references: [id])
 
+  @@unique([productID, shopID])
   @@map("product_amounts")
+}
+
+model Checkout {
+  id     String @id @default(uuid())
+  shopID String
+  shop   Shop   @relation(fields: [shopID], references: [id])
+
+  totalPrice    Float
+  totalQuantity Int
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  items     CheckoutItem[]
+
+  @@map("checkouts")
+}
+
+model CheckoutItem {
+  id String @id @default(uuid())
+
+  checkoutID String
+  checkout   Checkout @relation(fields: [checkoutID], references: [id])
+
+  productID String
+  product   Inventory @relation(fields: [productID], references: [id])
+
+  productName String
+
+  unitPrice Float
+
+  quantity Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("checkout_items")
 }
